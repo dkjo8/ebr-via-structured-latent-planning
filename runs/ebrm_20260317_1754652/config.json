@@ -1,1 +1,0 @@
-{"latent_dim":64,"lr":0.001,"batch_size":32,"planner_lr":0.01,"planner_steps":50,"alpha_decoder":1.0,"alpha_smooth":0.01,"trajectory_length":8,"epochs":5,"seed":42,"alpha_contrastive":0.1}
