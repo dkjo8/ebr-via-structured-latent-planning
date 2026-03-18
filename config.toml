@@ -1,0 +1,74 @@
+[general]
+seed = 42
+device = "auto"
+
+[latent]
+dim = 64
+trajectory_length = 8
+
+[training]
+epochs = 100
+batch_size = 32
+learning_rate = 1e-3
+weight_decay = 1e-4
+checkpoint_interval = 10
+alpha_contrastive = 0.1
+alpha_decoder = 1.0
+alpha_smooth = 0.01
+
+[inference]
+planner_steps = 50
+planner_lr = 0.01
+langevin_noise = 0.005
+use_langevin = true
+
+[energy]
+hidden_dim = 128
+n_layers = 3
+activation = "relu"
+
+[encoder]
+hidden_dim = 128
+n_layers = 2
+
+[decoder]
+hidden_dim = 128
+n_layers = 2
+
+[graph_task]
+n_nodes_range = [8, 20]
+edge_probability = 0.3
+n_train = 5000
+n_val = 500
+n_test = 1000
+
+[arithmetic_task]
+max_depth = 4
+max_operand = 99
+n_train = 5000
+n_val = 500
+n_test = 1000
+
+[logic_task]
+n_variables = 5
+n_clauses_range = [3, 10]
+n_train = 5000
+n_val = 500
+n_test = 1000
+
+[sweep]
+epochs = 30
+n_train = 500
+n_val = 50
+n_test = 100
+
+[ablation]
+epochs = 30
+n_train = 500
+n_val = 50
+n_test = 100
+
+[uv]
+project = "ebrm"
+enabled = true
+log_interval = 1

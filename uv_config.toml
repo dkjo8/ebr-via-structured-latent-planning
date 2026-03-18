@@ -1,0 +1,10 @@
+[uv]
+project = "ebrm"
+description = "Energy-Based Reasoning via Structured Latent Planning"
+backend = "file"
+log_dir = "runs"
+
+[uv.tags]
+framework = "Flux.jl"
+language = "Julia"
+domain = "reasoning"

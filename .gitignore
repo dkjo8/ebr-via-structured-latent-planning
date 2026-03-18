@@ -1,0 +1,14 @@
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Editors
+.vscode/
+.idea/
+
+# OS
+Thumbs.db

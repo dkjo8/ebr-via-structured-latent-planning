@@ -1,0 +1,7 @@
+runs/
+.git/
+notebooks/
+Manifest.toml
+modal_output/
+__pycache__/
+*.pyc
