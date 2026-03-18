@@ -46,6 +46,7 @@ Or use convenience scripts:
 
 ```bash
 ./scripts/run_tests.sh
+./scripts/run_all.sh
 ./scripts/run_paper_figures.sh
 ```
 
@@ -94,4 +95,4 @@ These directories are ignored by git.
 
 ## Citation
 
-If you use this code, please cite the associated work (add bibtex here once the paper/preprint is public).
+If you use this code, please cite the associated work (add bibtex here once the paper/preprint is public). GitHub can also pick up citation metadata from `CITATION.cff`.
