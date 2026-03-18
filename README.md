@@ -42,6 +42,13 @@ Generate paper figures (reduced settings for speed):
 julia --project=. analysis/generate_paper_figures.jl
 ```
 
+Or use convenience scripts:
+
+```bash
+./scripts/run_tests.sh
+./scripts/run_paper_figures.sh
+```
+
 ## What’s in the repo
 
 ```
