@@ -5,6 +5,7 @@ __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+.ipynb_checkpoints/
 
 # Editors
 .vscode/
@@ -12,3 +13,8 @@ __pycache__/
 
 # OS
 Thumbs.db
+
+# Experiment outputs (generated)
+runs/
+modal_output/
+analysis/figures/
