@@ -44,6 +44,7 @@ image = (
         remote_path="/app",
         copy=True,
         ignore=[
+            ".github",
             "runs",
             "Manifest.toml",
             ".git",
