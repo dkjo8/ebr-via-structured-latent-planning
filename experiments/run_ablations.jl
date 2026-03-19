@@ -22,7 +22,7 @@ include(joinpath(@__DIR__, "exp_graph_planning.jl"))
 include(joinpath(@__DIR__, "exp_arithmetic.jl"))
 include(joinpath(@__DIR__, "exp_logic.jl"))
 
-# ── Reuse override_config from sweep ─────────────────────────
+const Utils = Main.Train.Utils
 
 function override_config(base_cfg::Dict, overrides::NamedTuple)
     cfg = deepcopy(base_cfg)
@@ -36,28 +36,6 @@ function override_config(base_cfg::Dict, overrides::NamedTuple)
     haskey(overrides, :use_langevin)      && (cfg["inference"]["use_langevin"] = overrides.use_langevin)
     haskey(overrides, :learning_rate)     && (cfg["training"]["learning_rate"] = overrides.learning_rate)
     cfg
-end
-
-function write_temp_config(cfg::Dict, tag::String)
-    path = joinpath(tempdir(), "ablation_config_$(tag).toml")
-    open(path, "w") do io
-        for (section, vals) in cfg
-            println(io, "[$section]")
-            for (k, v) in vals
-                if v isa Vector
-                    println(io, "$k = $v")
-                elseif v isa String
-                    println(io, "$k = \"$v\"")
-                elseif v isa Bool
-                    println(io, "$k = $(v ? "true" : "false")")
-                else
-                    println(io, "$k = $v")
-                end
-            end
-            println(io)
-        end
-    end
-    path
 end
 
 function apply_ablation_sizes!(cfg::Dict)
@@ -135,7 +113,7 @@ function run_ablation_set(task::String, set_name::String, configs, base_cfg::Dic
         @info "Ablation $set_name $i/$(length(configs)): $ab_name" overrides...
 
         cfg = override_config(base_cfg, overrides)
-        cfg_path = write_temp_config(cfg, "$(set_name)_$(task)_$i")
+        cfg_path = Utils.write_temp_config(cfg, "ablation_$(set_name)_$(task)_$i")
         result = run_fn(; config_path=cfg_path)
         m = result.metrics
 
@@ -161,7 +139,7 @@ end
 # ── Task-Specific Entry Points ───────────────────────────────
 
 function run_all_ablations(task::String; config_path=joinpath(@__DIR__, "..", "config.toml"))
-    base_cfg = Main.Train.Utils.load_config(config_path)
+    base_cfg = Utils.load_config(config_path)
     apply_ablation_sizes!(base_cfg)
 
     @info "Running ablation set A (energy & planning) for $task"
