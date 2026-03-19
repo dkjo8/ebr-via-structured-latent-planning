@@ -9,8 +9,8 @@ using LinearAlgebra
 using MultivariateStats
 
 export plot_energy_vs_steps, plot_trajectory_2d, plot_energy_landscape,
-       plot_training_curves, plot_comparison, load_metrics,
-       plot_energy_vs_constraint_satisfaction, plot_error_vs_energy,
+       plot_training_curves, plot_comparison, plot_method_comparison,
+       load_metrics, plot_energy_vs_constraint_satisfaction, plot_error_vs_energy,
        plot_planning_trajectory_pca, plot_ablation_line, plot_results_table
 
 # ── Metrics Loading ──────────────────────────────────────────
