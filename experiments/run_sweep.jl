@@ -47,6 +47,8 @@ const LOGIC_SWEEP = [
 
 # ── Config Override ──────────────────────────────────────────
 
+const Utils = Main.Train.Utils
+
 function override_config(base_cfg::Dict, overrides::NamedTuple)
     cfg = deepcopy(base_cfg)
     haskey(overrides, :latent_dim)        && (cfg["latent"]["dim"] = overrides.latent_dim)
@@ -59,28 +61,6 @@ function override_config(base_cfg::Dict, overrides::NamedTuple)
     haskey(overrides, :use_langevin)      && (cfg["inference"]["use_langevin"] = overrides.use_langevin)
     haskey(overrides, :learning_rate)     && (cfg["training"]["learning_rate"] = overrides.learning_rate)
     cfg
-end
-
-function write_temp_config(cfg::Dict, tag::String)
-    path = joinpath(tempdir(), "sweep_config_$(tag).toml")
-    open(path, "w") do io
-        for (section, vals) in cfg
-            println(io, "[$section]")
-            for (k, v) in vals
-                if v isa Vector
-                    println(io, "$k = $v")
-                elseif v isa String
-                    println(io, "$k = \"$v\"")
-                elseif v isa Bool
-                    println(io, "$k = $(v ? "true" : "false")")
-                else
-                    println(io, "$k = $v")
-                end
-            end
-            println(io)
-        end
-    end
-    path
 end
 
 function apply_sweep_sizes!(cfg::Dict, sweep_cfg::Dict)
@@ -97,7 +77,7 @@ end
 # ── Graph Sweep ──────────────────────────────────────────────
 
 function run_graph_sweep(; config_path=joinpath(@__DIR__, "..", "config.toml"))
-    base_cfg = Main.Train.Utils.load_config(config_path)
+    base_cfg = Utils.load_config(config_path)
     if haskey(base_cfg, "sweep")
         apply_sweep_sizes!(base_cfg, base_cfg["sweep"])
     else
@@ -111,7 +91,7 @@ function run_graph_sweep(; config_path=joinpath(@__DIR__, "..", "config.toml"))
     for (i, ov) in enumerate(GRAPH_SWEEP)
         @info "Graph sweep $i/$(length(GRAPH_SWEEP))" ov...
         cfg = override_config(base_cfg, ov)
-        cfg_path = write_temp_config(cfg, "graph_$i")
+        cfg_path = Utils.write_temp_config(cfg, "sweep_graph_$i")
         result = run_graph_experiment(; config_path=cfg_path)
         m = result.metrics
         push!(rows, (;
@@ -136,7 +116,7 @@ end
 # ── Arithmetic Sweep ─────────────────────────────────────────
 
 function run_arith_sweep(; config_path=joinpath(@__DIR__, "..", "config.toml"))
-    base_cfg = Main.Train.Utils.load_config(config_path)
+    base_cfg = Utils.load_config(config_path)
     if haskey(base_cfg, "sweep")
         apply_sweep_sizes!(base_cfg, base_cfg["sweep"])
     else
@@ -150,7 +130,7 @@ function run_arith_sweep(; config_path=joinpath(@__DIR__, "..", "config.toml"))
     for (i, ov) in enumerate(ARITH_SWEEP)
         @info "Arithmetic sweep $i/$(length(ARITH_SWEEP))" ov...
         cfg = override_config(base_cfg, ov)
-        cfg_path = write_temp_config(cfg, "arith_$i")
+        cfg_path = Utils.write_temp_config(cfg, "sweep_arith_$i")
         result = run_arithmetic_experiment(; config_path=cfg_path)
         m = result.metrics
         push!(rows, (;
@@ -179,7 +159,7 @@ end
 # ── Logic Sweep ──────────────────────────────────────────────
 
 function run_logic_sweep(; config_path=joinpath(@__DIR__, "..", "config.toml"))
-    base_cfg = Main.Train.Utils.load_config(config_path)
+    base_cfg = Utils.load_config(config_path)
     if haskey(base_cfg, "sweep")
         apply_sweep_sizes!(base_cfg, base_cfg["sweep"])
     else
@@ -193,7 +173,7 @@ function run_logic_sweep(; config_path=joinpath(@__DIR__, "..", "config.toml"))
     for (i, ov) in enumerate(LOGIC_SWEEP)
         @info "Logic sweep $i/$(length(LOGIC_SWEEP))" ov...
         cfg = override_config(base_cfg, ov)
-        cfg_path = write_temp_config(cfg, "logic_$i")
+        cfg_path = Utils.write_temp_config(cfg, "sweep_logic_$i")
         result = run_logic_experiment(; config_path=cfg_path)
         m = result.metrics
         push!(rows, (;
