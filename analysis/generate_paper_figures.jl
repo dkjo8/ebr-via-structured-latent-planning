@@ -60,28 +60,6 @@ function load_reduced_config(; epochs=30, n_train=300, n_val=30, n_test=50)
     cfg
 end
 
-function write_temp_config(cfg::Dict, tag::String)
-    path = joinpath(tempdir(), "paperfig_$(tag).toml")
-    open(path, "w") do io
-        for (section, vals) in cfg
-            println(io, "[$section]")
-            for (k, v) in vals
-                if v isa Vector
-                    println(io, "$k = $v")
-                elseif v isa String
-                    println(io, "$k = \"$v\"")
-                elseif v isa Bool
-                    println(io, "$k = $(v ? "true" : "false")")
-                else
-                    println(io, "$k = $v")
-                end
-            end
-            println(io)
-        end
-    end
-    path
-end
-
 # ── Prepare functions (same as experiment scripts) ───────────
 
 function make_graph_prepare_fn(max_nodes::Int)
@@ -113,42 +91,6 @@ end
 cpuarray(x) = GPU.to_cpu(x)
 cpuarray(x::Vector) = x
 
-# ── Step-by-step planner with per-step recording ─────────────
-
-function plan_with_traces(energy_model, decoder, h_x, z_init, planner_cfg;
-                          record_fn=nothing)
-    z = copy(z_init)
-    energy_trace = Float64[]
-    record_trace = []
-
-    for step in 1:planner_cfg.steps
-        e_val, grads = Zygote.withgradient(z) do z_
-            energy_model(h_x, z_)
-        end
-        push!(energy_trace, e_val)
-
-        if record_fn !== nothing
-            push!(record_trace, record_fn(z, e_val, step))
-        end
-
-        gz = grads[1]
-        gz === nothing && break
-
-        grad_norm = sqrt(sum(abs2, gz))
-        if grad_norm > planner_cfg.clip_grad
-            gz = gz .* (planner_cfg.clip_grad / grad_norm)
-        end
-        z .= z .- Float32(planner_cfg.lr) .* gz
-
-        if planner_cfg.use_langevin
-            noise_scale = Float32(planner_cfg.langevin_noise * sqrt(2.0 * planner_cfg.lr))
-            z .+= noise_scale .* randn(Float32, size(z))
-        end
-    end
-
-    z, energy_trace, record_trace
-end
-
 # ══════════════════════════════════════════════════════════════
 # GRAPH TASK FIGURES
 # ══════════════════════════════════════════════════════════════
@@ -156,7 +98,6 @@ end
 function generate_graph_figures(cfg)
     @info "═══ GRAPH: Training and generating figures ═══"
     seed = cfg["general"]["seed"]
-    rng = MersenneTwister(seed)
     latent_dim = cfg["latent"]["dim"]
     T = cfg["latent"]["trajectory_length"]
     gc = cfg["graph_task"]
@@ -287,7 +228,6 @@ end
 function generate_arith_figures(cfg)
     @info "═══ ARITHMETIC: Training and generating figures ═══"
     seed = cfg["general"]["seed"]
-    rng = MersenneTwister(seed)
     latent_dim = cfg["latent"]["dim"]
     T = cfg["latent"]["trajectory_length"]
     ac = cfg["arithmetic_task"]
@@ -396,7 +336,6 @@ end
 function generate_logic_figures(cfg)
     @info "═══ LOGIC: Training and generating figures ═══"
     seed = cfg["general"]["seed"]
-    rng = MersenneTwister(seed)
     latent_dim = cfg["latent"]["dim"]
     T = cfg["latent"]["trajectory_length"]
     lc = cfg["logic_task"]
