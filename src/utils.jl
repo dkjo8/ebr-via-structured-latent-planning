@@ -10,6 +10,7 @@ using Flux
 export load_config, set_seed!, MovingAverage, update!, value,
        MetricsLogger, log_metric!, log_metrics!, save_metrics,
        log_config!, checkpoint_model, load_checkpoint,
+       write_temp_config,
        @timed_block
 
 # ── Configuration ────────────────────────────────────────────
@@ -21,6 +22,32 @@ end
 
 function set_seed!(seed::Int)
     Random.seed!(seed)
+end
+
+"""
+Write a config dict to a temporary TOML file. Returns the file path.
+`tag` should be unique per invocation (e.g. \"sweep_graph_1\", \"ablation_A_logic_3\").
+"""
+function write_temp_config(cfg::Dict, tag::String)
+    path = joinpath(tempdir(), "ebrm_config_$(tag).toml")
+    open(path, "w") do io
+        for (section, vals) in cfg
+            println(io, "[$section]")
+            for (k, v) in vals
+                if v isa Vector
+                    println(io, "$k = $v")
+                elseif v isa String
+                    println(io, "$k = \"$v\"")
+                elseif v isa Bool
+                    println(io, "$k = $(v ? "true" : "false")")
+                else
+                    println(io, "$k = $v")
+                end
+            end
+            println(io)
+        end
+    end
+    path
 end
 
 # ── Moving Average ───────────────────────────────────────────
