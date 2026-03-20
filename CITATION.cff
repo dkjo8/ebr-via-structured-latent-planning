@@ -1,9 +1,0 @@
-cff-version: 1.2.0
-message: "If you use this software, please cite it."
-title: "Energy-Based Reasoning via Structured Latent Planning (EBRM)"
-authors:
-  - family-names: "Johansson"
-    given-names: "David K"
-repository-code: "https://github.com/dkjo8/ebr-via-structured-latent-planning"
-license: "MIT"
-type: "software"
