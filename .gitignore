@@ -14,6 +14,9 @@ __pycache__/
 # OS
 Thumbs.db
 
+# Local notes (not for publication)
+notebooks/.md
+
 # Experiment outputs (generated)
 runs/
 modal_output/
