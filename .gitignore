@@ -15,6 +15,11 @@ __pycache__/
 # OS
 Thumbs.db
 
+# Local secrets (API keys, Modal tokens, etc.)
+.env
+.env.*
+!.env.example
+
 # Julia coverage (Pkg.test --coverage, etc.)
 *.cov
 # Allocation snapshots (--track-allocation)
