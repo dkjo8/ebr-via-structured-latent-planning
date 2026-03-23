@@ -16,6 +16,8 @@ Install [Julia](https://github.com/JuliaLang/juliaup) (Julia \(>= 1.10\)).
 julia --project=. -e "using Pkg; Pkg.instantiate()"
 ```
 
+Shell scripts under `scripts/` are optional convenience wrappers; on Windows, run the same `julia --project=. …` commands directly or use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install).
+
 ---
 
 ## Quick start
