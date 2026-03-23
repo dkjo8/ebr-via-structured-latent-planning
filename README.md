@@ -127,6 +127,16 @@ Most knobs live in `config.toml` (latent dim/length, optimizer settings, planner
 
 ---
 
+## Modal (cloud GPU)
+
+Optional: run training/figure generation on a Modal GPU using `modal_run.py` (see the module docstring for entrypoints). After syncing the volume, artifacts typically appear under `modal_output/` locally.
+
+```bash
+modal run modal_run.py
+```
+
+---
+
 ## Outputs
 
 By default, runs write to `runs/<run_name>/`:
@@ -137,4 +147,4 @@ By default, runs write to `runs/<run_name>/`:
 
 These directories are ignored by git.
 
-Modal GPU runs (see below) write under `modal_output/` on the host after download; that path is also ignored.
+Modal GPU runs write under `modal_output/` on the host after download; that path is also ignored.
