@@ -16,6 +16,8 @@ Thumbs.db
 
 # Julia coverage (Pkg.test --coverage, etc.)
 *.cov
+# Allocation snapshots (--track-allocation)
+*.mem
 
 # Local notes (not for publication)
 notebooks/.md
