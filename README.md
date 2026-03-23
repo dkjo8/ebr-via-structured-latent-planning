@@ -96,8 +96,10 @@ src/                         Models, training loop, inference planner
 experiments/                 Canonical runs, sweeps, baselines, ablations
 analysis/                    Plotting + paper figure generation
 tests/                       Unit/integration tests
+notebooks/                   demo_graph_reasoning.ipynb (interactive walkthrough)
 
 config.toml                  Default hyperparameters
+uv_config.toml               Optional uv metadata (tags, log dir)
 Project.toml / Manifest.toml Julia environment
 modal_run.py                 Modal runner for GPU figure generation
 ```
