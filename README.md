@@ -121,6 +121,17 @@ Problem x  ->  Encoder  ->  h_x (context)
 
 ---
 
+## Using as a library
+
+In Julia, load the umbrella module (same includes as the experiments use internally):
+
+```julia
+include("src/EBRM.jl")
+using .EBRM
+```
+
+---
+
 ## Configuration
 
 Most knobs live in `config.toml` (latent dim/length, optimizer settings, planner steps, task dataset sizes).
