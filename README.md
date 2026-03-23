@@ -75,6 +75,17 @@ julia --project=. experiments/run_ablations.jl arithmetic
 julia --project=. experiments/run_ablations.jl logic
 ```
 
+### Standalone baselines
+
+Encoder→decoder baselines (no energy model, no planner) for comparison; results in `analysis/baseline_results.csv`. Also run from `experiments/run_all.jl`.
+
+```bash
+julia --project=. experiments/baselines.jl graph
+julia --project=. experiments/baselines.jl arithmetic
+julia --project=. experiments/baselines.jl logic
+julia --project=. experiments/baselines.jl all
+```
+
 ---
 
 ## Repository layout
