@@ -45,6 +45,7 @@ image = (
         copy=True,
         ignore=[
             ".github",
+            ".cursor",
             ".DS_Store",
             "runs",
             "Manifest.toml",
