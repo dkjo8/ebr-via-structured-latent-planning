@@ -35,3 +35,4 @@ notebooks/.md
 runs/
 modal_output/
 analysis/figures/
+*.log
