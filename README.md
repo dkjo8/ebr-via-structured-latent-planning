@@ -54,6 +54,17 @@ julia --project=. analysis/generate_paper_figures.jl
 ./scripts/run_paper_figures.sh
 ```
 
+### Hyperparameter sweeps
+
+Grid search over a small set of configs per task; writes CSV summaries under `analysis/` (e.g. `sweep_results_graph.csv`).
+
+```bash
+julia --project=. experiments/run_sweep.jl graph
+julia --project=. experiments/run_sweep.jl arithmetic
+julia --project=. experiments/run_sweep.jl logic
+julia --project=. experiments/run_sweep.jl all
+```
+
 ---
 
 ## Repository layout
