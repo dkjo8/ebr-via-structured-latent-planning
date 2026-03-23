@@ -65,6 +65,16 @@ julia --project=. experiments/run_sweep.jl logic
 julia --project=. experiments/run_sweep.jl all
 ```
 
+### Ablation studies
+
+Task-specific ablation grids (energy/planning, latent structure, optimizer); CSVs under `analysis/` (e.g. `ablation_A_graph.csv`).
+
+```bash
+julia --project=. experiments/run_ablations.jl graph
+julia --project=. experiments/run_ablations.jl arithmetic
+julia --project=. experiments/run_ablations.jl logic
+```
+
 ---
 
 ## Repository layout
