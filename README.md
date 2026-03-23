@@ -104,3 +104,5 @@ By default, runs write to `runs/<run_name>/`:
 - diagnostic plots (`training_curves.png`, `energy_vs_steps.png`, `trajectory_2d.png`, etc.)
 
 These directories are ignored by git.
+
+Modal GPU runs (see below) write under `modal_output/` on the host after download; that path is also ignored.
