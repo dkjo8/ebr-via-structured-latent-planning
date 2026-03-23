@@ -4,6 +4,8 @@
 
 Julia research code for **reasoning as inference in latent space**: encode a problem into a context vector \(h_x\), optimize a structured latent trajectory \(z_{1:T}\) under a learned energy \(E(h_x, z)\), and decode an answer. Generated outputs (`runs/`, local figures) are not tracked in git.
 
+There is no `LICENSE` file in this repository yet; default copyright applies until terms are added.
+
 ---
 
 ## Setup
@@ -13,6 +15,8 @@ Install [Julia](https://github.com/JuliaLang/juliaup) (Julia \(>= 1.10\)).
 ```bash
 julia --project=. -e "using Pkg; Pkg.instantiate()"
 ```
+
+Shell scripts under `scripts/` are optional convenience wrappers; on Windows, run the same `julia --project=. …` commands directly or use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install).
 
 ---
 
@@ -52,6 +56,38 @@ julia --project=. analysis/generate_paper_figures.jl
 ./scripts/run_paper_figures.sh
 ```
 
+### Hyperparameter sweeps
+
+Grid search over a small set of configs per task; writes CSV summaries under `analysis/` (e.g. `sweep_results_graph.csv`).
+
+```bash
+julia --project=. experiments/run_sweep.jl graph
+julia --project=. experiments/run_sweep.jl arithmetic
+julia --project=. experiments/run_sweep.jl logic
+julia --project=. experiments/run_sweep.jl all
+```
+
+### Ablation studies
+
+Task-specific ablation grids (energy/planning, latent structure, optimizer); CSVs under `analysis/` (e.g. `ablation_A_graph.csv`).
+
+```bash
+julia --project=. experiments/run_ablations.jl graph
+julia --project=. experiments/run_ablations.jl arithmetic
+julia --project=. experiments/run_ablations.jl logic
+```
+
+### Standalone baselines
+
+Encoder→decoder baselines (no energy model, no planner) for comparison; results in `analysis/baseline_results.csv`. Also run from `experiments/run_all.jl`.
+
+```bash
+julia --project=. experiments/baselines.jl graph
+julia --project=. experiments/baselines.jl arithmetic
+julia --project=. experiments/baselines.jl logic
+julia --project=. experiments/baselines.jl all
+```
+
 ---
 
 ## Repository layout
@@ -62,8 +98,10 @@ src/                         Models, training loop, inference planner
 experiments/                 Canonical runs, sweeps, baselines, ablations
 analysis/                    Plotting + paper figure generation
 tests/                       Unit/integration tests
+notebooks/                   demo_graph_reasoning.ipynb (interactive walkthrough)
 
 config.toml                  Default hyperparameters
+uv_config.toml               Optional uv metadata (tags, log dir)
 Project.toml / Manifest.toml Julia environment
 modal_run.py                 Modal runner for GPU figure generation
 ```
@@ -87,9 +125,30 @@ Problem x  ->  Encoder  ->  h_x (context)
 
 ---
 
+## Using as a library
+
+In Julia, load the umbrella module (same includes as the experiments use internally):
+
+```julia
+include("src/EBRM.jl")
+using .EBRM
+```
+
+---
+
 ## Configuration
 
 Most knobs live in `config.toml` (latent dim/length, optimizer settings, planner steps, task dataset sizes).
+
+---
+
+## Modal (cloud GPU)
+
+Optional: run training/figure generation on a Modal GPU using `modal_run.py` (see the module docstring for entrypoints). After syncing the volume, artifacts typically appear under `modal_output/` locally.
+
+```bash
+modal run modal_run.py
+```
 
 ---
 
@@ -102,3 +161,5 @@ By default, runs write to `runs/<run_name>/`:
 - diagnostic plots (`training_curves.png`, `energy_vs_steps.png`, `trajectory_2d.png`, etc.)
 
 These directories are ignored by git.
+
+Modal GPU runs write under `modal_output/` on the host after download; that path is also ignored.

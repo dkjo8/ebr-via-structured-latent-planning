@@ -10,9 +10,23 @@ __pycache__/
 # Editors
 .vscode/
 .idea/
+.cursor/
+*~
+*.swp
+*.swo
 
 # OS
 Thumbs.db
+
+# Local secrets (API keys, Modal tokens, etc.)
+.env
+.env.*
+!.env.example
+
+# Julia coverage (Pkg.test --coverage, etc.)
+*.cov
+# Allocation snapshots (--track-allocation)
+*.mem
 
 # Local notes (not for publication)
 notebooks/.md
@@ -21,3 +35,4 @@ notebooks/.md
 runs/
 modal_output/
 analysis/figures/
+*.log

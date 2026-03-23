@@ -1,7 +1,9 @@
+.DS_Store
 runs/
 .git/
 notebooks/
 Manifest.toml
 modal_output/
+analysis/figures/
 __pycache__/
 *.pyc

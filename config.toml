@@ -1,3 +1,5 @@
+# Default hyperparameters for EBRM experiments (tasks, models, training, inference, sweeps).
+
 [general]
 seed = 42
 device = "auto"
