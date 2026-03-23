@@ -51,6 +51,7 @@ image = (
             ".git",
             "notebooks",
             "modal_output",
+            "analysis/figures",
             "__pycache__",
             "*.pyc",
         ],
