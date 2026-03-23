@@ -1,3 +1,4 @@
+# Optional uv project metadata (tags, default log directory). Not required to run Julia experiments.
 [uv]
 project = "ebrm"
 description = "Energy-Based Reasoning via Structured Latent Planning"
