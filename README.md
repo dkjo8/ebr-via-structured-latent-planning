@@ -4,6 +4,8 @@
 
 Julia research code for **reasoning as inference in latent space**: encode a problem into a context vector \(h_x\), optimize a structured latent trajectory \(z_{1:T}\) under a learned energy \(E(h_x, z)\), and decode an answer. Generated outputs (`runs/`, local figures) are not tracked in git.
 
+There is no `LICENSE` file in this repository yet; default copyright applies until terms are added.
+
 ---
 
 ## Setup
