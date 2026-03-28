@@ -35,6 +35,8 @@ function override_config(base_cfg::Dict, overrides::NamedTuple)
     haskey(overrides, :alpha_decoder)     && (cfg["training"]["alpha_decoder"] = overrides.alpha_decoder)
     haskey(overrides, :use_langevin)      && (cfg["inference"]["use_langevin"] = overrides.use_langevin)
     haskey(overrides, :learning_rate)     && (cfg["training"]["learning_rate"] = overrides.learning_rate)
+    haskey(overrides, :dual_path_decoder) && (cfg["training"]["dual_path_decoder"] = overrides.dual_path_decoder)
+    haskey(overrides, :anchor_weight)     && (cfg["inference"]["anchor_weight"] = overrides.anchor_weight)
     cfg
 end
 
@@ -91,6 +93,30 @@ const ABLATION_C_LR = [
     (name="plr_0.005", planner_lr=0.005),
     (name="plr_0.01",  planner_lr=0.01),
     (name="plr_0.05",  planner_lr=0.05),
+]
+
+# ── Ablation Set D: Initialization Strategy ──────────────────
+
+const ABLATION_D = [
+    (name="init_hx_noise",     planner_steps=50),  # default: z1=h_x, z_{2:T}~N(0,0.01)
+    (name="init_all_hx",       planner_steps=50),  # all z_t = h_x + noise (handled by experiment code)
+    (name="init_zero",         planner_steps=50),  # z = 0 (handled by experiment code)
+]
+
+# ── Ablation Set E: Decoder Training Distribution ────────────
+
+const ABLATION_E = [
+    (name="dec_direct_only",   dual_path_decoder=false),
+    (name="dec_dual_path",     dual_path_decoder=true),
+]
+
+# ── Ablation Set F: Anchor Weight ────────────────────────────
+
+const ABLATION_F = [
+    (name="anchor_0.0",   anchor_weight=0.0),
+    (name="anchor_0.01",  anchor_weight=0.01),
+    (name="anchor_0.1",   anchor_weight=0.1),
+    (name="anchor_1.0",   anchor_weight=1.0),
 ]
 
 # ── Generic Runner ───────────────────────────────────────────
@@ -157,8 +183,17 @@ function run_all_ablations(task::String; config_path=joinpath(@__DIR__, "..", "c
     @info "Running ablation set C-lr (planner step-size) for $task"
     df_c3 = run_ablation_set(task, "C_lr", ABLATION_C_LR, base_cfg)
 
+    @info "Running ablation set D (initialization strategy) for $task"
+    df_d = run_ablation_set(task, "D", ABLATION_D, base_cfg)
+
+    @info "Running ablation set E (decoder training distribution) for $task"
+    df_e = run_ablation_set(task, "E", ABLATION_E, base_cfg)
+
+    @info "Running ablation set F (anchor weight) for $task"
+    df_f = run_ablation_set(task, "F", ABLATION_F, base_cfg)
+
     @info "All ablations for $task complete."
-    (; A=df_a, B=df_b, C_steps=df_c1, C_langevin=df_c2, C_lr=df_c3)
+    (; A=df_a, B=df_b, C_steps=df_c1, C_langevin=df_c2, C_lr=df_c3, D=df_d, E=df_e, F=df_f)
 end
 
 # ── CLI ──────────────────────────────────────────────────────

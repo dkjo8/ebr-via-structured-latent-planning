@@ -17,6 +17,7 @@ struct PlannerConfig
     use_langevin::Bool
     clip_grad::Float64
     early_stop_tol::Float64
+    anchor_weight::Float64
 end
 
 function PlannerConfig(;
@@ -26,8 +27,9 @@ function PlannerConfig(;
     use_langevin::Bool=true,
     clip_grad::Float64=1.0,
     early_stop_tol::Float64=1e-6,
+    anchor_weight::Float64=0.0,
 )
-    PlannerConfig(steps, lr, langevin_noise, use_langevin, clip_grad, early_stop_tol)
+    PlannerConfig(steps, lr, langevin_noise, use_langevin, clip_grad, early_stop_tol, anchor_weight)
 end
 
 # ── Latent Planner ───────────────────────────────────────────
@@ -53,6 +55,7 @@ function optimize_latent(
     z = copy(z_init)
     energy_trace = Float64[]
     prev_energy = Inf
+    h_x_mat = repeat(h_x, 1, size(z_init, 2))
 
     for i in 1:config.steps
         e_val, grads = Zygote.withgradient(z) do z_
@@ -65,6 +68,10 @@ function optimize_latent(
         if gz === nothing
             @warn "No gradient at step $i"
             break
+        end
+
+        if config.anchor_weight > 0
+            gz = gz .+ Float32(2 * config.anchor_weight) .* (z .- h_x_mat)
         end
 
         grad_norm = sqrt(sum(abs2, gz))

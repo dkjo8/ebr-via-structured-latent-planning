@@ -34,11 +34,6 @@ image = (
         f"ln -s /opt/julia-{JULIA_VERSION}/bin/julia /usr/local/bin/julia && "
         f"julia --version",
     )
-    .run_commands(
-        'julia -e "'
-        "using CUDA; "
-        'CUDA.set_runtime_version!(local_toolkit=true)"',
-    )
     .add_local_dir(
         ".",
         remote_path="/app",
@@ -61,6 +56,8 @@ image = (
         'cd /app && julia --project=. -e "'
         "using Pkg; "
         "Pkg.instantiate(); "
+        "using CUDA; "
+        "CUDA.functional() && CUDA.set_runtime_version!(local_toolkit=true); "
         "Pkg.precompile()"
         '"',
         gpu="T4",

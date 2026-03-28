@@ -43,6 +43,7 @@ struct TrainConfig
     decoder_loss_fn::Function
     patience::Int
     min_delta::Float64
+    dual_path_decoder::Bool
 end
 
 function TrainConfig(cfg::Dict; decoder_loss_fn::Function=Flux.binarycrossentropy,
@@ -64,10 +65,12 @@ function TrainConfig(cfg::Dict; decoder_loss_fn::Function=Flux.binarycrossentrop
             lr=ic["planner_lr"],
             langevin_noise=ic["langevin_noise"],
             use_langevin=get(ic, "use_langevin", false),
+            anchor_weight=get(ic, "anchor_weight", 0.0),
         ),
         decoder_loss_fn,
         patience,
         min_delta,
+        get(tc, "dual_path_decoder", false),
     )
 end
 
@@ -132,21 +135,30 @@ function train_epoch!(
             features = GPU.to_device(features)
             target = GPU.to_device(target)
 
-            # Step 1: Train encoder + decoder with direct prediction (BCE).
+            # Step 1: Run planner to get z_pos (needed for dual-path decoder training).
+            h_x_detached = system.encoder(features)
+            z_init = 0.01f0 .* GPU.device_randn(rng, Float32, d, T)
+            z_init[:, 1] .= h_x_detached
+            z_pos, _ = Planner.optimize_latent(
+                system.energy_model, h_x_detached, z_init;
+                config=config.planner_config,
+            )
+
+            # Step 2: Train encoder + decoder (direct path, and optionally on z_T).
             l_dec, g_dec = Flux.withgradient(system.encoder, system.decoder) do enc, dec
                 h = enc(features)
-                Losses.decoder_loss(dec, h, target; loss_fn=config.decoder_loss_fn)
+                l_direct = Losses.decoder_loss(dec, h, target; loss_fn=config.decoder_loss_fn)
+                if config.dual_path_decoder
+                    l_planned = Losses.decoder_loss(dec, z_pos[:, end], target; loss_fn=config.decoder_loss_fn)
+                    0.5f0 * l_direct + 0.5f0 * l_planned
+                else
+                    l_direct
+                end
             end
             opt_encdec, _ = Flux.update!(opt_encdec, (system.encoder, system.decoder), g_dec)
 
-            # Step 2: Run planner, then train energy model with contrastive loss.
+            # Step 3: Train energy model with contrastive loss.
             h_x = system.encoder(features)
-            z_init = 0.01f0 .* GPU.device_randn(rng, Float32, d, T)
-            z_init[:, 1] .= h_x
-            z_pos, _ = Planner.optimize_latent(
-                system.energy_model, h_x, z_init;
-                config=config.planner_config,
-            )
             z_neg = z_pos .+ 0.5f0 .* GPU.device_randn(rng, Float32, d, T)
 
             l_energy, g_energy = Flux.withgradient(system.energy_model) do em
@@ -235,6 +247,8 @@ function train!(
         "alpha_smooth" => config.α_smooth,
         "planner_steps" => config.planner_config.steps,
         "planner_lr" => config.planner_config.lr,
+        "anchor_weight" => config.planner_config.anchor_weight,
+        "dual_path_decoder" => config.dual_path_decoder,
         "seed" => seed,
     )
     Utils.log_config!(state.logger, run_config)
