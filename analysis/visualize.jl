@@ -11,7 +11,10 @@ using MultivariateStats
 export plot_energy_vs_steps, plot_trajectory_2d, plot_energy_landscape,
        plot_training_curves, plot_comparison, plot_method_comparison,
        load_metrics, plot_energy_vs_constraint_satisfaction, plot_error_vs_energy,
-       plot_planning_trajectory_pca, plot_ablation_line, plot_results_table
+       plot_planning_trajectory_pca, plot_ablation_line, plot_results_table,
+       plot_perstep_decoding_heatmap, plot_distance_vs_accuracy,
+       plot_pca_with_metric, plot_gradient_decomposition,
+       plot_energy_accuracy_correlation
 
 # ── Metrics Loading ──────────────────────────────────────────
 
@@ -452,6 +455,168 @@ function plot_results_table(
     bar!(p, xs .+ offset, direct_vals; bar_width=w, label="EBRM Direct", color=:steelblue)
     bar!(p, xs .+ offset .+ w, planner_vals; bar_width=w, label="EBRM Planner", color=:firebrick)
 
+    if save_path !== nothing
+        savefig(p, save_path)
+    end
+    p
+end
+
+# ── Per-Step Decoding Heatmap ─────────────────────────────────
+
+"""
+Heatmap showing decoded metric at each planning step for multiple problems.
+`metric_matrix`: (n_problems × n_steps) matrix of metric values (e.g. SAT%).
+"""
+function plot_perstep_decoding_heatmap(
+    metric_matrix::Matrix{Float64};
+    xlabel::String="Planning Step",
+    ylabel::String="Problem",
+    title::String="Per-Step Decoded Metric During Planning",
+    save_path::Union{String, Nothing}=nothing,
+)
+    n_problems, n_steps = size(metric_matrix)
+    p = heatmap(1:n_steps, 1:n_problems, metric_matrix;
+        xlabel=xlabel, ylabel=ylabel, title=title,
+        color=:RdYlGn, clims=(0.0, 1.0),
+        size=(900, 400), colorbar_title="Metric",
+    )
+    if save_path !== nothing
+        savefig(p, save_path)
+    end
+    p
+end
+
+# ── Distance vs Accuracy ─────────────────────────────────────
+
+"""
+Dual-axis plot: ||z_t - h_x|| and decoded accuracy over planning steps.
+"""
+function plot_distance_vs_accuracy(
+    distances::Vector{Vector{Float64}},
+    accuracies::Vector{Vector{Float64}};
+    labels::Vector{String}=["Problem $i" for i in 1:length(distances)],
+    title::String="Latent Drift vs Decoded Accuracy",
+    save_path::Union{String, Nothing}=nothing,
+)
+    colors = [:steelblue, :firebrick, :seagreen, :darkorange, :purple]
+    p = plot(; xlabel="Planning Step", size=(900, 500), title=title, grid=true, legend=:topright)
+
+    for (i, dist) in enumerate(distances)
+        c = colors[mod1(i, length(colors))]
+        plot!(p, 1:length(dist), dist; label="||z-h_x||: $(labels[i])",
+            linewidth=2, color=c, ylabel="||z_t - h_x||₂")
+    end
+
+    p2 = twinx(p)
+    for (i, acc) in enumerate(accuracies)
+        c = colors[mod1(i, length(colors))]
+        plot!(p2, 1:length(acc), acc .* 100; label="Metric: $(labels[i])",
+            linewidth=2, linestyle=:dash, color=c, ylabel="Decoded Metric (%)")
+    end
+
+    if save_path !== nothing
+        savefig(p, save_path)
+    end
+    p
+end
+
+# ── PCA with Metric Coloring ─────────────────────────────────
+
+"""
+PCA projection of trajectories with points colored by a decoded metric value,
+and h_x encoder outputs shown as distinct markers.
+"""
+function plot_pca_with_metric(
+    trajectories::Vector{<:AbstractMatrix},
+    metric_per_step::Vector{Vector{Float64}};
+    h_x_points::Vector{<:AbstractVector}=AbstractVector[],
+    title::String="Latent Trajectories (PCA, colored by metric)",
+    save_path::Union{String, Nothing}=nothing,
+)
+    all_points = hcat(trajectories...)
+    if !isempty(h_x_points)
+        h_x_mat = hcat([reshape(h, :, 1) for h in h_x_points]...)
+        all_points = hcat(all_points, h_x_mat)
+    end
+
+    pca_model = fit(PCA, Float64.(all_points); maxoutdim=2)
+    projected = predict(pca_model, Float64.(all_points))
+
+    all_metrics = vcat(metric_per_step...)
+    n_traj_pts = sum(size(t, 2) for t in trajectories)
+
+    p = plot(; xlabel="PC1", ylabel="PC2", title=title, grid=true,
+        size=(750, 700), colorbar_title="Metric")
+
+    traj_xs = projected[1, 1:n_traj_pts]
+    traj_ys = projected[2, 1:n_traj_pts]
+    scatter!(p, traj_xs, traj_ys; zcolor=all_metrics, color=:RdYlGn,
+        markersize=4, markerstrokewidth=0, label="Trajectory steps", clims=(0.0, 1.0))
+
+    if !isempty(h_x_points)
+        hx_xs = projected[1, n_traj_pts+1:end]
+        hx_ys = projected[2, n_traj_pts+1:end]
+        scatter!(p, hx_xs, hx_ys; label="h_x (encoder)",
+            markersize=10, markershape=:hexagon, color=:black, markerstrokewidth=2)
+    end
+
+    if save_path !== nothing
+        savefig(p, save_path)
+    end
+    p
+end
+
+# ── Gradient Decomposition ───────────────────────────────────
+
+"""
+Stacked area or line plot showing the magnitude of each energy term's gradient
+over planning steps.
+"""
+function plot_gradient_decomposition(
+    step_grad_norms::Vector{Float64},
+    trans_grad_norms::Vector{Float64},
+    smooth_grad_norms::Vector{Float64};
+    title::String="Gradient Decomposition During Planning",
+    save_path::Union{String, Nothing}=nothing,
+)
+    steps = 1:length(step_grad_norms)
+    p = plot(; xlabel="Planning Step", ylabel="Gradient Norm",
+        title=title, grid=true, size=(800, 500), legend=:topright)
+    plot!(p, steps, step_grad_norms; label="Step scorer ∇", linewidth=2, color=:steelblue)
+    plot!(p, steps, trans_grad_norms; label="Transition scorer ∇", linewidth=2, color=:firebrick)
+    plot!(p, steps, smooth_grad_norms; label="Smoothness ∇", linewidth=2, color=:seagreen)
+
+    if save_path !== nothing
+        savefig(p, save_path)
+    end
+    p
+end
+
+# ── Energy-Accuracy Correlation ──────────────────────────────
+
+"""
+Scatter plot of energy vs decoded metric at multiple planning steps,
+with Pearson r annotated.
+"""
+function plot_energy_accuracy_correlation(
+    energies::Vector{Float64},
+    metrics::Vector{Float64};
+    xlabel_str::String="Energy E(h_x, z)",
+    ylabel_str::String="Decoded Metric",
+    title::String="Energy vs Accuracy Correlation",
+    save_path::Union{String, Nothing}=nothing,
+)
+    p = scatter(energies, metrics;
+        xlabel=xlabel_str, ylabel=ylabel_str, title=title,
+        color=:steelblue, alpha=0.6, markersize=4, markerstrokewidth=0,
+        grid=true, size=(700, 500), legend=false,
+    )
+    if length(energies) > 2
+        r = cor(energies, metrics)
+        annotate!(p, [(minimum(energies) + 0.1 * (maximum(energies) - minimum(energies)),
+                       maximum(metrics) * 0.9,
+                       text("r = $(round(r; digits=3))", 10, :left))])
+    end
     if save_path !== nothing
         savefig(p, save_path)
     end

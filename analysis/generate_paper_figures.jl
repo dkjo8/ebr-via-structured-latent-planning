@@ -474,6 +474,225 @@ function generate_logic_figures(cfg)
 end
 
 # ══════════════════════════════════════════════════════════════
+# DIAGNOSTIC FIGURES (Phase 1 + Phase 4)
+# ══════════════════════════════════════════════════════════════
+
+function generate_diagnostic_figures(logic_res, cfg)
+    @info "═══ DIAGNOSTICS: Per-step decoding, distance tracking, gradient decomposition ═══"
+    seed = cfg["general"]["seed"]
+    latent_dim = cfg["latent"]["dim"]
+    T = cfg["latent"]["trajectory_length"]
+
+    system = logic_res.system
+    test_data = logic_res.test_data
+    prepare_fn = logic_res.prepare_fn
+    energy_model = system.energy_model
+
+    long_cfg = Planner.PlannerConfig(;
+        steps=cfg["inference"]["planner_steps"] * 4,
+        lr=cfg["inference"]["planner_lr"], use_langevin=false)
+
+    n_diag = min(8, length(test_data))
+    rng_fig = MersenneTwister(seed + 400)
+
+    # ── Per-step decoding + distance tracking ──
+    @info "Diagnostics: per-step decoding and distance tracking"
+    all_distances = Vector{Float64}[]
+    all_sat_traces = Vector{Float64}[]
+    metric_matrix = zeros(Float64, n_diag, long_cfg.steps)
+    trajectories_for_pca = Matrix{Float32}[]
+    metric_per_step_for_pca = Vector{Float64}[]
+    h_x_points = Vector{Float32}[]
+
+    for i in 1:n_diag
+        prob = test_data[i]
+        features, _ = prepare_fn(prob)
+        h_x = system.encoder(features)
+        push!(h_x_points, cpuarray(h_x))
+
+        z = 0.01f0 .* GPU.device_randn(rng_fig, Float32, latent_dim, T)
+        z[:, 1] .= h_x
+
+        dist_trace = Float64[]
+        sat_trace = Float64[]
+        step_metrics = Float64[]
+
+        for step in 1:long_cfg.steps
+            e_val, grads = Zygote.withgradient(z) do z_
+                energy_model(h_x, z_)
+            end
+
+            z_T_cur = z[:, end]
+            probs_vec = system.decoder(z_T_cur)
+            assignment = BitVector(probs_vec[1:prob.formula.n_vars] .> 0.5f0)
+            sat = LogicReasoning.count_satisfied(prob.formula, assignment)
+            sat_rate = sat / max(prob.n_clauses, 1)
+
+            push!(dist_trace, Float64(sqrt(sum(abs2, z_T_cur .- h_x))))
+            push!(sat_trace, sat_rate)
+            push!(step_metrics, sat_rate)
+
+            gz = grads[1]
+            gz === nothing && break
+            grad_norm = sqrt(sum(abs2, gz))
+            if grad_norm > long_cfg.clip_grad
+                gz = gz .* (long_cfg.clip_grad / grad_norm)
+            end
+            z .= z .- Float32(long_cfg.lr) .* gz
+        end
+
+        push!(all_distances, dist_trace)
+        push!(all_sat_traces, sat_trace)
+        metric_matrix[i, 1:length(step_metrics)] .= step_metrics
+        push!(trajectories_for_pca, cpuarray(copy(z)))
+        push!(metric_per_step_for_pca, [sat_trace[end]])
+    end
+
+    labels = ["Formula $i" for i in 1:n_diag]
+
+    Visualize.plot_perstep_decoding_heatmap(metric_matrix;
+        title="Logic: Per-Step SAT% During Planning",
+        save_path=joinpath(FIGS, "logic_perstep_sat_heatmap.png"))
+
+    n_plot = min(5, n_diag)
+    Visualize.plot_distance_vs_accuracy(all_distances[1:n_plot], all_sat_traces[1:n_plot];
+        labels=labels[1:n_plot],
+        title="Logic: Latent Drift ||z_T - h_x|| vs SAT%",
+        save_path=joinpath(FIGS, "logic_distance_vs_sat.png"))
+
+    # ── PCA with metric coloring ──
+    @info "Diagnostics: PCA with SAT% coloring"
+    pca_trajs = Matrix{Float32}[]
+    pca_metrics = Vector{Float64}[]
+    rng_fig = MersenneTwister(seed + 500)
+    n_pca = min(8, length(test_data))
+    planner_cfg = Planner.PlannerConfig(;
+        steps=cfg["inference"]["planner_steps"],
+        lr=cfg["inference"]["planner_lr"], use_langevin=false)
+
+    for i in 1:n_pca
+        prob = test_data[i]
+        features, _ = prepare_fn(prob)
+        h_x = system.encoder(features)
+
+        z_init = 0.01f0 .* GPU.device_randn(rng_fig, Float32, latent_dim, T)
+        z_init[:, 1] .= h_x
+        z_opt, _ = Planner.optimize_latent(energy_model, h_x, z_init; config=planner_cfg)
+        z_cpu = cpuarray(z_opt)
+        push!(pca_trajs, z_cpu)
+
+        step_sats = Float64[]
+        for t in 1:size(z_cpu, 2)
+            probs_vec = system.decoder(z_cpu[:, t])
+            assignment = BitVector(probs_vec[1:prob.formula.n_vars] .> 0.5f0)
+            sat = LogicReasoning.count_satisfied(prob.formula, assignment)
+            push!(step_sats, sat / max(prob.n_clauses, 1))
+        end
+        push!(pca_metrics, step_sats)
+    end
+
+    Visualize.plot_pca_with_metric(pca_trajs, pca_metrics;
+        h_x_points=h_x_points[1:n_pca],
+        title="Logic: PCA Trajectories (colored by SAT%)",
+        save_path=joinpath(FIGS, "logic_pca_metric_colored.png"))
+
+    # ── Gradient decomposition ──
+    @info "Diagnostics: gradient decomposition"
+    prob = test_data[1]
+    features, _ = prepare_fn(prob)
+    h_x = system.encoder(features)
+    rng_fig = MersenneTwister(seed + 600)
+    z = 0.01f0 .* GPU.device_randn(rng_fig, Float32, latent_dim, T)
+    z[:, 1] .= h_x
+
+    step_gnorms = Float64[]
+    trans_gnorms = Float64[]
+    smooth_gnorms = Float64[]
+
+    for step in 1:long_cfg.steps
+        _, g_step = Zygote.withgradient(z) do z_
+            d_, T_ = size(z_)
+            s = 0f0
+            for t in 1:T_
+                s += only(energy_model.step_scorer(vcat(h_x, z_[:, t])))
+            end
+            s / T_
+        end
+        _, g_trans = Zygote.withgradient(z) do z_
+            d_, T_ = size(z_)
+            s = 0f0
+            for t in 1:(T_-1)
+                s += only(energy_model.transition_scorer(vcat(z_[:, t], z_[:, t+1])))
+            end
+            T_ > 1 ? s / (T_ - 1) : 0f0
+        end
+        _, g_smooth = Zygote.withgradient(z) do z_
+            T_ = size(z_, 2)
+            T_ > 1 ? mean(sum((z_[:, 2:end] .- z_[:, 1:end-1]).^2; dims=1)) : 0f0
+        end
+
+        push!(step_gnorms, g_step[1] === nothing ? 0.0 : Float64(sqrt(sum(abs2, g_step[1]))))
+        push!(trans_gnorms, g_trans[1] === nothing ? 0.0 : Float64(sqrt(sum(abs2, g_trans[1]))))
+        push!(smooth_gnorms, g_smooth[1] === nothing ? 0.0 : Float64(sqrt(sum(abs2, g_smooth[1]))))
+
+        e_val, grads = Zygote.withgradient(z) do z_
+            energy_model(h_x, z_)
+        end
+        gz = grads[1]
+        gz === nothing && break
+        grad_norm = sqrt(sum(abs2, gz))
+        if grad_norm > long_cfg.clip_grad
+            gz = gz .* (long_cfg.clip_grad / grad_norm)
+        end
+        z .= z .- Float32(long_cfg.lr) .* gz
+    end
+
+    Visualize.plot_gradient_decomposition(step_gnorms, trans_gnorms, smooth_gnorms;
+        title="Logic: Gradient Decomposition During Planning",
+        save_path=joinpath(FIGS, "logic_gradient_decomposition.png"))
+
+    # ── Energy-accuracy correlation at multiple steps ──
+    @info "Diagnostics: energy-accuracy correlation"
+    check_steps = [0, 10, 25, 50]
+    for cs in check_steps
+        energies = Float64[]
+        sat_rates = Float64[]
+        rng_fig = MersenneTwister(seed + 700 + cs)
+        check_cfg = Planner.PlannerConfig(; steps=cs, lr=cfg["inference"]["planner_lr"], use_langevin=false)
+
+        for i in 1:length(test_data)
+            prob = test_data[i]
+            features, _ = prepare_fn(prob)
+            h_x = system.encoder(features)
+            z_init = 0.01f0 .* GPU.device_randn(rng_fig, Float32, latent_dim, T)
+            z_init[:, 1] .= h_x
+
+            if cs > 0
+                z_opt, trace = Planner.optimize_latent(energy_model, h_x, z_init; config=check_cfg)
+                push!(energies, isempty(trace) ? NaN : last(trace))
+                z_T = z_opt[:, end]
+            else
+                push!(energies, Float64(energy_model(h_x, z_init)))
+                z_T = h_x
+            end
+
+            probs_vec = system.decoder(z_T)
+            assignment = BitVector(probs_vec[1:prob.formula.n_vars] .> 0.5f0)
+            sat = LogicReasoning.count_satisfied(prob.formula, assignment)
+            push!(sat_rates, sat / max(prob.n_clauses, 1))
+        end
+
+        Visualize.plot_energy_accuracy_correlation(energies, sat_rates;
+            xlabel_str="Energy E(h_x, z)",
+            ylabel_str="SAT%",
+            title="Logic: Energy vs SAT% (step=$cs)",
+            save_path=joinpath(FIGS, "logic_energy_sat_corr_step$(cs).png"))
+    end
+
+    @info "Diagnostic figures complete"
+end
+
+# ══════════════════════════════════════════════════════════════
 # CROSS-TASK SUMMARY FIGURE
 # ══════════════════════════════════════════════════════════════
 
@@ -580,6 +799,7 @@ function generate_all_paper_figures()
     graph_res = generate_graph_figures(cfg)
     arith_res = generate_arith_figures(cfg)
     logic_res = generate_logic_figures(cfg)
+    generate_diagnostic_figures(logic_res, cfg)
     generate_cross_task_figure(graph_res, arith_res, logic_res, cfg)
 
     elapsed = round((time() - t0) / 60; digits=1)

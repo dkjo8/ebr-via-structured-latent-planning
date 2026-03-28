@@ -17,12 +17,14 @@ checkpoint_interval = 10
 alpha_contrastive = 0.1
 alpha_decoder = 1.0
 alpha_smooth = 0.01
+dual_path_decoder = false
 
 [inference]
 planner_steps = 50
 planner_lr = 0.01
 langevin_noise = 0.005
 use_langevin = true
+anchor_weight = 0.0
 
 [energy]
 hidden_dim = 128
@@ -54,6 +56,27 @@ n_test = 1000
 [logic_task]
 n_variables = 5
 n_clauses_range = [3, 10]
+n_train = 5000
+n_val = 500
+n_test = 1000
+
+[graph_task_easy]
+n_nodes_range = [5, 10]
+edge_probability = 0.4
+n_train = 5000
+n_val = 500
+n_test = 1000
+
+[logic_task_medium]
+n_variables = 10
+n_clauses_range = [20, 40]
+n_train = 5000
+n_val = 500
+n_test = 1000
+
+[logic_task_hard]
+n_variables = 15
+n_clauses_range = [40, 60]
 n_train = 5000
 n_val = 500
 n_test = 1000
